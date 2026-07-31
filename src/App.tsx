@@ -269,12 +269,18 @@ function App() {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
     }, duration + 500)
   }
-
+    const today = new Date();
+  const displayDate = today.toLocaleDateString('tr-TR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  })
   if (!started) {
     return (
       <main className="app-shell">
         <section className="card">
-          <p className="eyebrow">El chin + Myek + Obur</p>
+          <p className="eyebrow">{displayDate} </p>
           <h1>Wordle Türkçe</h1>
           <p className="copy">hadi bakalım, kelimeyi bulabilecek misin?</p>
           <button type="button" onClick={() => setStarted(true)}>
