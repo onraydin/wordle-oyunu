@@ -84,7 +84,11 @@ function App() {
   const inputRefs = useRef<(HTMLInputElement | null)[][]>(
     Array.from({ length: ATTEMPT_LIMIT }, () => Array(WORD_LENGTH).fill(null)),
   )
+  const confettiRef = useRef<HTMLCanvasElement | null>(null)
+  const confettiAnimRef = useRef<number | null>(null)
   const dailyWord = getDailyWord(todayKey)
+  const [showVictoryText, setShowVictoryText] = useState(false)
+  const CONFETTI_DURATION = 3000
 
   useEffect(() => {
     const now = new Date()
@@ -126,6 +130,22 @@ function App() {
     }
   }
 
+  useEffect(() => {
+    if (isWon) {
+      setShowVictoryText(true)
+      launchConfetti(CONFETTI_DURATION)
+      window.setTimeout(() => setShowVictoryText(false), CONFETTI_DURATION)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isWon])
+
+  useEffect(() => {
+    if (!isWon) return
+    // ensure the victory text hides when restarting or switching day
+    return () => setShowVictoryText(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todayKey])
+
   const submitGuess = () => {
     if (isWon || currentRow >= ATTEMPT_LIMIT) {
       return
@@ -146,6 +166,108 @@ function App() {
     }
 
     setCurrentRow((prev) => prev + 1)
+  }
+
+  const launchConfetti = (duration = 3000) => {
+    const canvas = confettiRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    let width = (canvas.width = canvas.clientWidth)
+    let height = (canvas.height = canvas.clientHeight)
+
+    const colors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#06b6d4', '#3b82f6', '#8b5cf6']
+
+    type Particle = {
+      x: number
+      y: number
+      vx: number
+      vy: number
+      size: number
+      color: string
+      rotation: number
+      spin: number
+    }
+
+    const particles: Particle[] = []
+    const count = 120
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.random() - 0.5) * Math.PI / 2
+      const speed = 2 + Math.random() * 6
+      particles.push({
+        x: width / 2 + (Math.random() - 0.5) * 80,
+        y: height / 4 + (Math.random() - 0.5) * 40,
+        vx: Math.cos(angle) * speed + (Math.random() - 0.5) * 2,
+        vy: Math.sin(angle) * speed - Math.random() * 2,
+        size: 6 + Math.random() * 10,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        rotation: Math.random() * Math.PI,
+        spin: (Math.random() - 0.5) * 0.2,
+      })
+    }
+
+    let start: number | null = null
+
+    const step = (timestamp: number) => {
+      if (!start) start = timestamp
+      const elapsed = timestamp - start
+
+      ctx.clearRect(0, 0, width, height)
+
+      // update and draw
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i]
+        p.vy += 0.07 // gravity
+        p.vx *= 0.999
+        p.vy *= 0.999
+        p.x += p.vx
+        p.y += p.vy
+        p.rotation += p.spin
+
+        ctx.save()
+        ctx.translate(p.x, p.y)
+        ctx.rotate(p.rotation)
+        ctx.fillStyle = p.color
+        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6)
+        ctx.restore()
+
+        // remove if offscreen
+        if (p.y > height + 50 || p.x < -50 || p.x > width + 50) {
+          particles.splice(i, 1)
+        }
+      }
+
+      if (elapsed < duration && particles.length > 0) {
+        confettiAnimRef.current = window.requestAnimationFrame(step)
+      } else {
+        ctx.clearRect(0, 0, width, height)
+        if (confettiAnimRef.current) {
+          window.cancelAnimationFrame(confettiAnimRef.current)
+          confettiAnimRef.current = null
+        }
+      }
+    }
+
+    // handle resize
+    const handleResize = () => {
+      width = canvas.width = canvas.clientWidth
+      height = canvas.height = canvas.clientHeight
+    }
+
+    window.addEventListener('resize', handleResize)
+    confettiAnimRef.current = window.requestAnimationFrame(step)
+
+    // cleanup after duration + short buffer
+    setTimeout(() => {
+      window.removeEventListener('resize', handleResize)
+      if (confettiAnimRef.current) {
+        window.cancelAnimationFrame(confettiAnimRef.current)
+        confettiAnimRef.current = null
+      }
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+    }, duration + 500)
   }
 
   if (!started) {
@@ -246,6 +368,10 @@ function App() {
         <button type="button" className="secondary" onClick={() => setStarted(false)}>
           Geri dön
         </button>
+        <canvas ref={confettiRef} className="confetti-canvas" />
+        <div className={`victory-message ${showVictoryText ? 'visible' : ''}`} aria-hidden={!showVictoryText}>
+          DOĞRU KELİME
+        </div>
       </section>
     </main>
   )
