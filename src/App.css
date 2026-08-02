@@ -20,6 +20,14 @@
   box-shadow: 0 24px 80px rgba(15, 23, 42, 0.45);
 }
 
+.game-layout {
+  width: min(100%, 980px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 20px;
+  align-items: start;
+}
+
 .eyebrow {
   margin: 0 0 12px;
   font-size: 0.75rem;
@@ -42,6 +50,34 @@ h1 {
   line-height: 1.6;
 }
 
+.name-field {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.name-field span {
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fcd34d;
+}
+
+.name-field input {
+  width: 100%;
+  border: 1px solid rgba(248, 250, 252, 0.18);
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: rgba(248, 250, 252, 0.08);
+  color: #f8fafc;
+  outline: none;
+}
+
+.name-field input:focus {
+  border-color: #fbbf24;
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
+}
+
 button {
   border: 0;
   border-radius: 999px;
@@ -55,6 +91,11 @@ button {
 
 button:hover {
   background: #f59e0b;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 button.secondary {
@@ -153,6 +194,59 @@ button.secondary:hover {
   font-weight: 700;
 }
 
+.leaderboard-card {
+  width: 100%;
+  padding: 28px 22px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 24px;
+  background: rgba(15, 23, 42, 0.68);
+  backdrop-filter: blur(18px);
+  color: #f8fafc;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.36);
+}
+
+.leaderboard-card h2 {
+  margin: 0 0 14px;
+  font-size: 1.35rem;
+}
+
+.leaderboard-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.leaderboard-item {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(248, 250, 252, 0.06);
+  border: 1px solid rgba(248, 250, 252, 0.12);
+}
+
+.leaderboard-rank {
+  font-size: 0.75rem;
+  letter-spacing: 0.16em;
+  color: #fcd34d;
+}
+
+.leaderboard-name {
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.leaderboard-meta {
+  font-size: 0.88rem;
+  color: rgba(248, 250, 252, 0.72);
+}
+
+.leaderboard-empty {
+  margin: 0;
+}
+
 .refresh-timer {
   display: grid;
   gap: 4px;
@@ -249,6 +343,11 @@ button.secondary:hover {
     align-items: start;
   }
 
+  .game-layout {
+    width: 100%;
+    grid-template-columns: 1fr;
+  }
+
   .card,
   .game-card {
     width: 100%;
@@ -259,6 +358,15 @@ button.secondary:hover {
   .copy {
     font-size: 0.98rem;
     margin-bottom: 20px;
+  }
+
+  .name-field {
+    margin-bottom: 14px;
+  }
+
+  .leaderboard-card {
+    padding: 20px 16px;
+    border-radius: 20px;
   }
 
   .refresh-timer {

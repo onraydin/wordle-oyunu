@@ -57,6 +57,31 @@ const formatCountdown = (milliseconds: number) => {
 
 type LetterStatus = 'correct' | 'present' | 'empty'
 
+type LeaderboardEntry = {
+  name: string
+  finishedAt: string
+  attemptsUsed: number
+}
+
+const getLeaderboardStorageKey = (dateKey: string) => `wordle-leaderboard-${dateKey}`
+
+const loadLeaderboard = (dateKey: string) => {
+  try {
+    const rawValue = window.localStorage.getItem(getLeaderboardStorageKey(dateKey))
+    return rawValue ? (JSON.parse(rawValue) as LeaderboardEntry[]) : []
+  } catch {
+    return []
+  }
+}
+
+const saveLeaderboard = (dateKey: string, entries: LeaderboardEntry[]) => {
+  try {
+    window.localStorage.setItem(getLeaderboardStorageKey(dateKey), JSON.stringify(entries))
+  } catch {
+    // ignore storage errors
+  }
+}
+
 const getLetterStatuses = (guess: string, target: string): LetterStatus[] => {
   const guessLetters = guess.toUpperCase().split('')
   const targetLetters = target.toUpperCase().split('')
@@ -93,11 +118,14 @@ const getLetterStatuses = (guess: string, target: string): LetterStatus[] => {
 function App() {
   const [todayKey, setTodayKey] = useState(() => getLocalDateKey())
   const [started, setStarted] = useState(false)
+  const [playerName, setPlayerName] = useState('')
+  const [draftPlayerName, setDraftPlayerName] = useState('')
   const [attempts, setAttempts] = useState<string[][]>(() => createEmptyBoard(WORD_LENGTH))
   const [submittedRows, setSubmittedRows] = useState<boolean[]>(Array(ATTEMPT_LIMIT).fill(false))
   const [currentRow, setCurrentRow] = useState(0)
   const [isWon, setIsWon] = useState(false)
   const [now, setNow] = useState(() => new Date())
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() => loadLeaderboard(getLocalDateKey()))
   const currentInputRef = useRef<HTMLInputElement | null>(null)
   const confettiRef = useRef<HTMLCanvasElement | null>(null)
   const confettiAnimRef = useRef<number | null>(null)
@@ -121,6 +149,7 @@ function App() {
     setSubmittedRows(Array(ATTEMPT_LIMIT).fill(false))
     setCurrentRow(0)
     setIsWon(false)
+    setLeaderboard(loadLeaderboard(todayKey))
   }, [todayKey])
 
   useEffect(() => {
@@ -142,6 +171,16 @@ function App() {
 
     return () => window.clearTimeout(timeoutId)
   }, [currentRow, isWon, started])
+
+  const startGame = () => {
+    const trimmedName = draftPlayerName.trim()
+    if (!trimmedName) {
+      return
+    }
+
+    setPlayerName(trimmedName)
+    setStarted(true)
+  }
 
   const handleGuessChange = (value: string) => {
     if (isWon || currentRow >= ATTEMPT_LIMIT) {
@@ -189,6 +228,21 @@ function App() {
     setSubmittedRows(nextSubmittedRows)
 
     if (guessWord.toUpperCase() === dailyWord.toUpperCase()) {
+      const winnerName = playerName.trim() || 'Anonim'
+      const updatedLeaderboard = [
+        ...leaderboard,
+        {
+          name: winnerName,
+          finishedAt: new Date().toLocaleTimeString('tr-TR', {
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+          attemptsUsed: currentRow + 1,
+        },
+      ]
+
+      setLeaderboard(updatedLeaderboard)
+      saveLeaderboard(todayKey, updatedLeaderboard)
       setIsWon(true)
       return
     }
@@ -198,6 +252,9 @@ function App() {
 
   const showRefreshTimer = isWon || currentRow >= ATTEMPT_LIMIT
   const countdownText = formatCountdown(getNextLocalMidnight(now).getTime() - now.getTime())
+  const sortedLeaderboard = [...leaderboard]
+
+  sortedLeaderboard.sort((left, right) => left.attemptsUsed - right.attemptsUsed)
 
   const launchConfetti = (duration = 3000) => {
     const canvas = confettiRef.current
@@ -314,7 +371,19 @@ function App() {
           <p className="eyebrow">{displayDate} </p>
           <h1>Wordle Türkçe</h1>
           <p className="copy">hadi bakalım, kelimeyi bulabilecek misin?</p>
-          <button type="button" onClick={() => setStarted(true)}>
+          <label className="name-field">
+            <span>Önce adını yaz</span>
+            <input
+              type="text"
+              value={draftPlayerName}
+              onChange={(event) => setDraftPlayerName(event.target.value)}
+              placeholder="Adın"
+              autoComplete="nickname"
+              autoCapitalize="words"
+              maxLength={20}
+            />
+          </label>
+          <button type="button" onClick={startGame} disabled={!draftPlayerName.trim()}>
             Oyna
           </button>
         </section>
@@ -324,96 +393,118 @@ function App() {
 
   return (
     <main className="app-shell">
-      <section className="game-card">
-        <p className="eyebrow">Bugünün tahmini</p>
-        <h1>Günlük kelime</h1>
-        <p className="copy">
-          5 tahmin hakkın var. Kelimenin tamamını yazıp "Tahmin Et" butonuna basınca sadece
-          doğru kelime satırı yeşil olur.
-        </p>
+      <div className="game-layout">
+        <section className="game-card">
+          <p className="eyebrow">Bugünün tahmini</p>
+          <h1>Günlük kelime</h1>
+          <p className="copy">
+            5 tahmin hakkın var. Kelimenin tamamını yazıp "Tahmin Et" butonuna basınca sadece
+            doğru kelime satırı yeşil olur.
+          </p>
 
-        <div className="board" aria-label="Tahmin alanı">
-          {attempts.map((row, rowIndex) => {
-            const rowWord = row.join('')
-            const isSubmitted = submittedRows[rowIndex]
-            const isCurrentRow = rowIndex === currentRow && !isWon
-            const letterStatuses = isSubmitted ? getLetterStatuses(rowWord, dailyWord) : []
+          <div className="board" aria-label="Tahmin alanı">
+            {attempts.map((row, rowIndex) => {
+              const rowWord = row.join('')
+              const isSubmitted = submittedRows[rowIndex]
+              const isCurrentRow = rowIndex === currentRow && !isWon
+              const letterStatuses = isSubmitted ? getLetterStatuses(rowWord, dailyWord) : []
 
-            return (
-              <div key={rowIndex} className={`guess-row ${isCurrentRow ? 'active' : ''}`}>
-                {row.map((letter, index) => (
-                  <div
-                    key={`${rowIndex}-${index}`}
-                    className={`tile-cell ${
-                      letterStatuses[index] === 'correct'
-                        ? 'correct'
-                        : letterStatuses[index] === 'present'
-                          ? 'present'
-                          : ''
-                    }`}
-                  >
-                    {letter}
-                  </div>
-                ))}
+              return (
+                <div key={rowIndex} className={`guess-row ${isCurrentRow ? 'active' : ''}`}>
+                  {row.map((letter, index) => (
+                    <div
+                      key={`${rowIndex}-${index}`}
+                      className={`tile-cell ${
+                        letterStatuses[index] === 'correct'
+                          ? 'correct'
+                          : letterStatuses[index] === 'present'
+                            ? 'present'
+                            : ''
+                      }`}
+                    >
+                      {letter}
+                    </div>
+                  ))}
 
-                {isCurrentRow && (
-                  <input
-                    ref={currentInputRef}
-                    className="row-input"
-                    type="text"
-                    value={rowWord}
-                    onChange={(event) => handleGuessChange(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        submitGuess()
-                      }
-                    }}
-                    onPaste={(event) => {
-                      event.preventDefault()
-                      const pastedText = event.clipboardData.getData('text')
-                      handleGuessChange(pastedText)
-                    }}
-                    maxLength={WORD_LENGTH}
-                    inputMode="text"
-                    autoComplete="off"
-                    autoCapitalize="characters"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    aria-label={`Satır ${rowIndex + 1} tahmin girişi`}
-                  />
-                )}
-              </div>
-            )
-          })}
-        </div>
-
-        {showRefreshTimer && (
-          <div className="refresh-timer" aria-live="polite">
-            <span className="refresh-label">Yeni kelimeye kalan süre</span>
-            <strong className="refresh-value">{countdownText}</strong>
-            <span className="refresh-note">Saat 00:00&apos;da kelime otomatik yenilenir.</span>
+                  {isCurrentRow && (
+                    <input
+                      ref={currentInputRef}
+                      className="row-input"
+                      type="text"
+                      value={rowWord}
+                      onChange={(event) => handleGuessChange(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          submitGuess()
+                        }
+                      }}
+                      onPaste={(event) => {
+                        event.preventDefault()
+                        const pastedText = event.clipboardData.getData('text')
+                        handleGuessChange(pastedText)
+                      }}
+                      maxLength={WORD_LENGTH}
+                      inputMode="text"
+                      autoComplete="off"
+                      autoCapitalize="characters"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      aria-label={`Satır ${rowIndex + 1} tahmin girişi`}
+                    />
+                  )}
+                </div>
+              )
+            })}
           </div>
-        )}
 
-        <p className="copy attempts-left">Kalan hak: {Math.max(ATTEMPT_LIMIT - currentRow, 0)}</p>
+          {showRefreshTimer && (
+            <div className="refresh-timer" aria-live="polite">
+              <span className="refresh-label">Yeni kelimeye kalan süre</span>
+              <strong className="refresh-value">{countdownText}</strong>
+              <span className="refresh-note">Saat 00:00&apos;da kelime otomatik yenilenir.</span>
+            </div>
+          )}
 
-        <button type="button" onClick={submitGuess} disabled={isWon || currentRow >= ATTEMPT_LIMIT}>
-          Tahmin Et
-        </button>
+          <p className="copy attempts-left">Kalan hak: {Math.max(ATTEMPT_LIMIT - currentRow, 0)}</p>
 
-        {isWon && <p className="copy result">Tebrikler, doğru kelimeyi buldun.</p>}
-        {!isWon && currentRow >= ATTEMPT_LIMIT && (
-          <p className="copy result">Hakların bitti. Bugünün kelimesi: {dailyWord.toUpperCase()}</p>
-        )}
+          <button type="button" onClick={submitGuess} disabled={isWon || currentRow >= ATTEMPT_LIMIT}>
+            Tahmin Et
+          </button>
 
-        <button type="button" className="secondary" onClick={() => setStarted(false)}>
-          Geri dön
-        </button>
-        <canvas ref={confettiRef} className="confetti-canvas" />
-        <div className={`victory-message ${showVictoryText ? 'visible' : ''}`} aria-hidden={!showVictoryText}>
-          DOĞRU KELİME
-        </div>
-      </section>
+          {isWon && <p className="copy result">Tebrikler, doğru kelimeyi buldun.</p>}
+          {!isWon && currentRow >= ATTEMPT_LIMIT && (
+            <p className="copy result">Hakların bitti. Bugünün kelimesi: {dailyWord.toUpperCase()}</p>
+          )}
+
+          <button type="button" className="secondary" onClick={() => setStarted(false)}>
+            Geri dön
+          </button>
+          <canvas ref={confettiRef} className="confetti-canvas" />
+          <div className={`victory-message ${showVictoryText ? 'visible' : ''}`} aria-hidden={!showVictoryText}>
+            DOĞRU KELİME
+          </div>
+        </section>
+
+        <aside className="leaderboard-card" aria-label="Kazananlar listesi">
+          <p className="eyebrow">Leaderboard</p>
+          <h2>Doğru yapanlar</h2>
+          {sortedLeaderboard.length > 0 ? (
+            <ol className="leaderboard-list">
+              {sortedLeaderboard.map((entry, index) => (
+                <li key={`${entry.name}-${entry.finishedAt}-${index}`} className="leaderboard-item">
+                  <span className="leaderboard-rank">{String(index + 1).padStart(2, '0')}</span>
+                  <span className="leaderboard-name">{entry.name}</span>
+                  <span className="leaderboard-meta">
+                    {entry.attemptsUsed} hak · {entry.finishedAt}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="copy leaderboard-empty">Henüz kimse doğru kelimeyi bulmadı.</p>
+          )}
+        </aside>
+      </div>
     </main>
   )
 }
