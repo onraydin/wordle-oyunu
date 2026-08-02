@@ -1,30 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import './App.css'
+import {
+  AVAILABLE_WORD_LENGTHS,
+  DAILY_WORDS_BY_LENGTH,
+  DEFAULT_WORD_LENGTH,
+  type WordLength,
+} from './data/words'
 
-const WORD_LENGTH = 5
 const ATTEMPT_LIMIT = 5
-const DAILY_WORDS = [
-  'LAMBA',
-  'KALEM',
-  'ARABA',
-  'BAHAR',
-  'ÇİLEK',
-  'DEFNE',
-  'EKMEK',
-  'FİDAN',
-  'GÖLGE',
-  'HAYAT',
-  'KOLYE',
-  'MEYVE',
-  'SALON',
-  'SİMGE',
-  'ŞARKI',
-  'TARLA',
-  'UZMAN',
-  'VAKIF',
-  'YAĞIZ',
-  'ZAMAN',
-]
 
 const createEmptyBoard = (wordLength: number) =>
   Array.from({ length: ATTEMPT_LIMIT }, () => Array(wordLength).fill(''))
@@ -34,9 +17,10 @@ const getLocalDateKey = (date = new Date()) =>
     date.getDate(),
   ).padStart(2, '0')}`
 
-const getDailyWord = (dateKey: string) => {
+const getDailyWord = (dateKey: string, wordLength: WordLength) => {
   const hash = Array.from(dateKey).reduce((sum, character) => sum + character.charCodeAt(0), 0)
-  return DAILY_WORDS[hash % DAILY_WORDS.length]
+  const words = DAILY_WORDS_BY_LENGTH[wordLength]
+  return words[hash % words.length]
 }
 
 const getNextLocalMidnight = (date = new Date()) => {
@@ -63,20 +47,21 @@ type LeaderboardEntry = {
   attemptsUsed: number
 }
 
-const getLeaderboardStorageKey = (dateKey: string) => `wordle-leaderboard-${dateKey}`
+const getLeaderboardStorageKey = (dateKey: string, wordLength: WordLength) =>
+  `wordle-leaderboard-${dateKey}-${wordLength}`
 
-const loadLeaderboard = (dateKey: string) => {
+const loadLeaderboard = (dateKey: string, wordLength: WordLength) => {
   try {
-    const rawValue = window.localStorage.getItem(getLeaderboardStorageKey(dateKey))
+    const rawValue = window.localStorage.getItem(getLeaderboardStorageKey(dateKey, wordLength))
     return rawValue ? (JSON.parse(rawValue) as LeaderboardEntry[]) : []
   } catch {
     return []
   }
 }
 
-const saveLeaderboard = (dateKey: string, entries: LeaderboardEntry[]) => {
+const saveLeaderboard = (dateKey: string, wordLength: WordLength, entries: LeaderboardEntry[]) => {
   try {
-    window.localStorage.setItem(getLeaderboardStorageKey(dateKey), JSON.stringify(entries))
+    window.localStorage.setItem(getLeaderboardStorageKey(dateKey, wordLength), JSON.stringify(entries))
   } catch {
     // ignore storage errors
   }
@@ -120,16 +105,20 @@ function App() {
   const [started, setStarted] = useState(false)
   const [playerName, setPlayerName] = useState('')
   const [draftPlayerName, setDraftPlayerName] = useState('')
-  const [attempts, setAttempts] = useState<string[][]>(() => createEmptyBoard(WORD_LENGTH))
+  const [draftWordLength, setDraftWordLength] = useState<WordLength>(DEFAULT_WORD_LENGTH)
+  const [wordLength, setWordLength] = useState<WordLength>(DEFAULT_WORD_LENGTH)
+  const [attempts, setAttempts] = useState<string[][]>(() => createEmptyBoard(DEFAULT_WORD_LENGTH))
   const [submittedRows, setSubmittedRows] = useState<boolean[]>(Array(ATTEMPT_LIMIT).fill(false))
   const [currentRow, setCurrentRow] = useState(0)
   const [isWon, setIsWon] = useState(false)
   const [now, setNow] = useState(() => new Date())
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() => loadLeaderboard(getLocalDateKey()))
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() =>
+    loadLeaderboard(getLocalDateKey(), DEFAULT_WORD_LENGTH),
+  )
   const currentInputRef = useRef<HTMLInputElement | null>(null)
   const confettiRef = useRef<HTMLCanvasElement | null>(null)
   const confettiAnimRef = useRef<number | null>(null)
-  const dailyWord = getDailyWord(todayKey)
+  const dailyWord = getDailyWord(todayKey, wordLength)
   const [showVictoryText, setShowVictoryText] = useState(false)
   const CONFETTI_DURATION = 3000
 
@@ -145,12 +134,12 @@ function App() {
   }, [todayKey])
 
   useEffect(() => {
-    setAttempts(createEmptyBoard(WORD_LENGTH))
+    setAttempts(createEmptyBoard(wordLength))
     setSubmittedRows(Array(ATTEMPT_LIMIT).fill(false))
     setCurrentRow(0)
     setIsWon(false)
-    setLeaderboard(loadLeaderboard(todayKey))
-  }, [todayKey])
+    setLeaderboard(loadLeaderboard(todayKey, wordLength))
+  }, [todayKey, wordLength])
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -170,7 +159,7 @@ function App() {
     }, 0)
 
     return () => window.clearTimeout(timeoutId)
-  }, [currentRow, isWon, started])
+  }, [currentRow, isWon, started, todayKey, wordLength])
 
   const startGame = () => {
     const trimmedName = draftPlayerName.trim()
@@ -178,7 +167,13 @@ function App() {
       return
     }
 
+    setWordLength(draftWordLength)
     setPlayerName(trimmedName)
+    setAttempts(createEmptyBoard(draftWordLength))
+    setSubmittedRows(Array(ATTEMPT_LIMIT).fill(false))
+    setCurrentRow(0)
+    setIsWon(false)
+    setLeaderboard(loadLeaderboard(todayKey, draftWordLength))
     setStarted(true)
   }
 
@@ -189,11 +184,11 @@ function App() {
 
     const normalized = value
       .replace(/[^A-Za-zÇçĞğİıÖöŞşÜü]/g, '')
-      .slice(0, WORD_LENGTH)
+      .slice(0, wordLength)
       .toUpperCase()
 
     const nextAttempts = attempts.map((row) => [...row])
-    nextAttempts[currentRow] = Array.from({ length: WORD_LENGTH }, (_, index) => normalized[index] ?? '')
+    nextAttempts[currentRow] = Array.from({ length: wordLength }, (_, index) => normalized[index] ?? '')
     setAttempts(nextAttempts)
   }
 
@@ -219,7 +214,7 @@ function App() {
     }
 
     const guessWord = attempts[currentRow].join('')
-    if (guessWord.length !== WORD_LENGTH) {
+    if (guessWord.length !== wordLength) {
       return
     }
 
@@ -242,7 +237,7 @@ function App() {
       ]
 
       setLeaderboard(updatedLeaderboard)
-      saveLeaderboard(todayKey, updatedLeaderboard)
+      saveLeaderboard(todayKey, wordLength, updatedLeaderboard)
       setIsWon(true)
       return
     }
@@ -371,6 +366,18 @@ function App() {
           <p className="eyebrow">{displayDate} </p>
           <h1>Wordle Türkçe</h1>
           <p className="copy">hadi bakalım, kelimeyi bulabilecek misin?</p>
+          <div className="length-picker" role="group" aria-label="Kelime uzunluğu seçimi">
+            {AVAILABLE_WORD_LENGTHS.map((length) => (
+              <button
+                key={length}
+                type="button"
+                className={`length-option ${draftWordLength === length ? 'active' : ''}`}
+                onClick={() => setDraftWordLength(length)}
+              >
+                {length} harf
+              </button>
+            ))}
+          </div>
           <label className="name-field">
             <span>Önce adını yaz</span>
             <input
@@ -396,10 +403,10 @@ function App() {
       <div className="game-layout">
         <section className="game-card">
           <p className="eyebrow">Bugünün tahmini</p>
-          <h1>Günlük kelime</h1>
+          <h1>{wordLength} harfli kelime</h1>
           <p className="copy">
-            5 tahmin hakkın var. Kelimenin tamamını yazıp "Tahmin Et" butonuna basınca sadece
-            doğru kelime satırı yeşil olur.
+            {wordLength} tahminli oyun modundasın. Kelimenin tamamını yazıp "Tahmin Et" butonuna
+            basınca sadece doğru kelime satırı yeşil olur.
           </p>
 
           <div className="board" aria-label="Tahmin alanı">
@@ -410,7 +417,11 @@ function App() {
               const letterStatuses = isSubmitted ? getLetterStatuses(rowWord, dailyWord) : []
 
               return (
-                <div key={rowIndex} className={`guess-row ${isCurrentRow ? 'active' : ''}`}>
+                <div
+                  key={rowIndex}
+                  className={`guess-row ${isCurrentRow ? 'active' : ''}`}
+                  style={{ gridTemplateColumns: `repeat(${wordLength}, minmax(0, 1fr))` }}
+                >
                   {row.map((letter, index) => (
                     <div
                       key={`${rowIndex}-${index}`}
@@ -443,7 +454,7 @@ function App() {
                         const pastedText = event.clipboardData.getData('text')
                         handleGuessChange(pastedText)
                       }}
-                      maxLength={WORD_LENGTH}
+                      maxLength={wordLength}
                       inputMode="text"
                       autoComplete="off"
                       autoCapitalize="characters"
@@ -487,7 +498,7 @@ function App() {
 
         <aside className="leaderboard-card" aria-label="Kazananlar listesi">
           <p className="eyebrow">Leaderboard</p>
-          <h2>Doğru yapanlar</h2>
+          <h2>{wordLength} harfli doğru yapanlar</h2>
           {sortedLeaderboard.length > 0 ? (
             <ol className="leaderboard-list">
               {sortedLeaderboard.map((entry, index) => (

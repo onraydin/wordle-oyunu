@@ -78,6 +78,33 @@ h1 {
   box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
 }
 
+.length-picker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 18px;
+}
+
+.length-option {
+  padding: 12px 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(248, 250, 252, 0.16);
+  background: rgba(248, 250, 252, 0.08);
+  color: #f8fafc;
+  font-weight: 700;
+  text-transform: none;
+}
+
+.length-option:hover {
+  background: rgba(248, 250, 252, 0.12);
+}
+
+.length-option.active {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #111827;
+  border-color: #fbbf24;
+}
+
 button {
   border: 0;
   border-radius: 999px;
@@ -362,6 +389,15 @@ button.secondary:hover {
 
   .name-field {
     margin-bottom: 14px;
+  }
+
+  .length-picker {
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .length-option {
+    padding: 11px 8px;
   }
 
   .leaderboard-card {
