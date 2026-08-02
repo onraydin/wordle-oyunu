@@ -39,6 +39,22 @@ const getDailyWord = (dateKey: string) => {
   return DAILY_WORDS[hash % DAILY_WORDS.length]
 }
 
+const getNextLocalMidnight = (date = new Date()) => {
+  const nextMidnight = new Date(date)
+  nextMidnight.setDate(date.getDate() + 1)
+  nextMidnight.setHours(0, 0, 0, 0)
+  return nextMidnight
+}
+
+const formatCountdown = (milliseconds: number) => {
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000))
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+
+  return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':')
+}
+
 type LetterStatus = 'correct' | 'present' | 'empty'
 
 const getLetterStatuses = (guess: string, target: string): LetterStatus[] => {
@@ -81,6 +97,7 @@ function App() {
   const [submittedRows, setSubmittedRows] = useState<boolean[]>(Array(ATTEMPT_LIMIT).fill(false))
   const [currentRow, setCurrentRow] = useState(0)
   const [isWon, setIsWon] = useState(false)
+  const [now, setNow] = useState(() => new Date())
   const currentInputRef = useRef<HTMLInputElement | null>(null)
   const confettiRef = useRef<HTMLCanvasElement | null>(null)
   const confettiAnimRef = useRef<number | null>(null)
@@ -90,9 +107,7 @@ function App() {
 
   useEffect(() => {
     const now = new Date()
-    const nextMidnight = new Date(now)
-    nextMidnight.setDate(now.getDate() + 1)
-    nextMidnight.setHours(0, 0, 0, 0)
+    const nextMidnight = getNextLocalMidnight(now)
 
     const timeoutId = window.setTimeout(() => {
       setTodayKey(getLocalDateKey())
@@ -107,6 +122,14 @@ function App() {
     setCurrentRow(0)
     setIsWon(false)
   }, [todayKey])
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNow(new Date())
+    }, 1000)
+
+    return () => window.clearInterval(intervalId)
+  }, [])
 
   useEffect(() => {
     if (!started || isWon || currentRow >= ATTEMPT_LIMIT) {
@@ -172,6 +195,9 @@ function App() {
 
     setCurrentRow((prev) => prev + 1)
   }
+
+  const hasSubmittedGuess = submittedRows.some(Boolean)
+  const countdownText = formatCountdown(getNextLocalMidnight(now).getTime() - now.getTime())
 
   const launchConfetti = (duration = 3000) => {
     const canvas = confettiRef.current
@@ -360,6 +386,14 @@ function App() {
             )
           })}
         </div>
+
+        {hasSubmittedGuess && (
+          <div className="refresh-timer" aria-live="polite">
+            <span className="refresh-label">Yeni kelimeye kalan süre</span>
+            <strong className="refresh-value">{countdownText}</strong>
+            <span className="refresh-note">Saat 00:00&apos;da kelime otomatik yenilenir.</span>
+          </div>
+        )}
 
         <p className="copy attempts-left">Kalan hak: {Math.max(ATTEMPT_LIMIT - currentRow, 0)}</p>
 

@@ -153,6 +153,35 @@ button.secondary:hover {
   font-weight: 700;
 }
 
+.refresh-timer {
+  display: grid;
+  gap: 4px;
+  margin: 16px 0 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(79, 251, 36, 0.18), rgba(15, 23, 42, 0.6));
+  border: 1px solid rgba(251, 191, 36, 0.28);
+}
+
+.refresh-label {
+  font-size: 0.82rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fcd34d;
+}
+
+.refresh-value {
+  font-size: clamp(1.35rem, 4vw, 1.9rem);
+  line-height: 1;
+  letter-spacing: 0.08em;
+  color: #fff7cc;
+}
+
+.refresh-note {
+  font-size: 0.92rem;
+  color: rgba(248, 250, 252, 0.72);
+}
+
 /* Confetti canvas */
 .game-card {
   width: min(100%, 560px);
@@ -230,6 +259,12 @@ button.secondary:hover {
   .copy {
     font-size: 0.98rem;
     margin-bottom: 20px;
+  }
+
+  .refresh-timer {
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-radius: 16px;
   }
 
   .board {
