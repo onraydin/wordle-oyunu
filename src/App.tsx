@@ -196,7 +196,7 @@ function App() {
     setCurrentRow((prev) => prev + 1)
   }
 
-  const hasSubmittedGuess = submittedRows.some(Boolean)
+  const showRefreshTimer = isWon || currentRow >= ATTEMPT_LIMIT
   const countdownText = formatCountdown(getNextLocalMidnight(now).getTime() - now.getTime())
 
   const launchConfetti = (duration = 3000) => {
@@ -387,7 +387,7 @@ function App() {
           })}
         </div>
 
-        {hasSubmittedGuess && (
+        {showRefreshTimer && (
           <div className="refresh-timer" aria-live="polite">
             <span className="refresh-label">Yeni kelimeye kalan süre</span>
             <strong className="refresh-value">{countdownText}</strong>
