@@ -81,9 +81,7 @@ function App() {
   const [submittedRows, setSubmittedRows] = useState<boolean[]>(Array(ATTEMPT_LIMIT).fill(false))
   const [currentRow, setCurrentRow] = useState(0)
   const [isWon, setIsWon] = useState(false)
-  const inputRefs = useRef<(HTMLInputElement | null)[][]>(
-    Array.from({ length: ATTEMPT_LIMIT }, () => Array(WORD_LENGTH).fill(null)),
-  )
+  const currentInputRef = useRef<HTMLInputElement | null>(null)
   const confettiRef = useRef<HTMLCanvasElement | null>(null)
   const confettiAnimRef = useRef<number | null>(null)
   const dailyWord = getDailyWord(todayKey)
@@ -108,26 +106,33 @@ function App() {
     setSubmittedRows(Array(ATTEMPT_LIMIT).fill(false))
     setCurrentRow(0)
     setIsWon(false)
-    inputRefs.current = Array.from({ length: ATTEMPT_LIMIT }, () => Array(WORD_LENGTH).fill(null))
   }, [todayKey])
 
-  const handleGuessChange = (index: number, value: string) => {
+  useEffect(() => {
+    if (!started || isWon || currentRow >= ATTEMPT_LIMIT) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      currentInputRef.current?.focus()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [currentRow, isWon, started])
+
+  const handleGuessChange = (value: string) => {
     if (isWon || currentRow >= ATTEMPT_LIMIT) {
       return
     }
 
     const normalized = value
       .replace(/[^A-Za-zÇçĞğİıÖöŞşÜü]/g, '')
-      .slice(-1)
+      .slice(0, WORD_LENGTH)
       .toUpperCase()
 
     const nextAttempts = attempts.map((row) => [...row])
-    nextAttempts[currentRow][index] = normalized
+    nextAttempts[currentRow] = Array.from({ length: WORD_LENGTH }, (_, index) => normalized[index] ?? '')
     setAttempts(nextAttempts)
-
-    if (normalized && index < WORD_LENGTH - 1) {
-      inputRefs.current[currentRow][index + 1]?.focus()
-    }
   }
 
   useEffect(() => {
@@ -309,52 +314,48 @@ function App() {
             const letterStatuses = isSubmitted ? getLetterStatuses(rowWord, dailyWord) : []
 
             return (
-              <div key={rowIndex} className="guess-row">
+              <div key={rowIndex} className={`guess-row ${isCurrentRow ? 'active' : ''}`}>
                 {row.map((letter, index) => (
-                  <input
+                  <div
                     key={`${rowIndex}-${index}`}
-                    ref={(element) => {
-                      inputRefs.current[rowIndex][index] = element
-                    }}
-                    className={`tile-input ${
+                    className={`tile-cell ${
                       letterStatuses[index] === 'correct'
                         ? 'correct'
                         : letterStatuses[index] === 'present'
                           ? 'present'
                           : ''
                     }`}
+                  >
+                    {letter}
+                  </div>
+                ))}
+
+                {isCurrentRow && (
+                  <input
+                    ref={currentInputRef}
+                    className="row-input"
                     type="text"
-                    maxLength={1}
-                    value={letter}
-                    onChange={(event) => handleGuessChange(index, event.target.value)}
+                    value={rowWord}
+                    onChange={(event) => handleGuessChange(event.target.value)}
                     onKeyDown={(event) => {
-                      if (event.key === 'Enter' && isCurrentRow) {
+                      if (event.key === 'Enter') {
                         submitGuess()
-                        return
-                      }
-
-                      if (event.key === 'Backspace' && isCurrentRow) {
-                        event.preventDefault()
-
-                        const nextAttempts = attempts.map((row) => [...row])
-
-                        if (letter) {
-                          nextAttempts[currentRow][index] = ''
-                          setAttempts(nextAttempts)
-                          return
-                        }
-
-                        if (index > 0) {
-                          nextAttempts[currentRow][index - 1] = ''
-                          setAttempts(nextAttempts)
-                          inputRefs.current[currentRow][index - 1]?.focus()
-                        }
                       }
                     }}
-                    aria-label={`Satır ${rowIndex + 1} Harf ${index + 1}`}
-                    disabled={!isCurrentRow}
+                    onPaste={(event) => {
+                      event.preventDefault()
+                      const pastedText = event.clipboardData.getData('text')
+                      handleGuessChange(pastedText)
+                    }}
+                    maxLength={WORD_LENGTH}
+                    inputMode="text"
+                    autoComplete="off"
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    aria-label={`Satır ${rowIndex + 1} tahmin girişi`}
                   />
-                ))}
+                )}
               </div>
             )
           })}
